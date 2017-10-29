@@ -12,26 +12,28 @@ public class ProcessData
 	double numberOfNegativeWords = 0;
 	double numberOfPositiveWords = 0;
 	HashMap<String, Integer> positiveVocabulary = new HashMap<String, Integer>();
-	HashMap<String, Integer> negativeVocabulary = new HashMap<String, Integer>();		
-	String dataFolder;
+	HashMap<String, Integer> negativeVocabulary = new HashMap<String, Integer>();
+	HashMap<String, Integer> stopWords = new HashMap<String, Integer>();
+	String dataFolder; 
 	
-	public ProcessData(String dataFolder) throws IOException
+	public ProcessData(String dataFolder, Boolean removeStopWords) throws IOException
 	{
-		this.dataFolder = dataFolder;
-		calculateVocabularyHashMaps_Wrapper();
+		this.dataFolder = dataFolder;		
+		createStopwordsHashMap();		
+		calculateVocabularyHashMaps_Wrapper(removeStopWords);
 	}
 	
 	public Boolean findSentiment(String query)
 	{
 		query = query.replaceAll("[!?,]", "");
-		String[] queryWords = query.split(" ");
+		String[] queryWords = query.split("<br /><br />|\\s");
 		for (int i = 0; i < queryWords.length; i++)
 		{
 			queryWords[i] = queryWords[i].replaceAll("[^\\w]", "");
-			//System.out.println(queryWords[i]);
+			queryWords[i] = queryWords[i].toLowerCase();
 		}
 		
-		double negativeProbability=1.0, positiveProbability=1.0;
+		double negativeProbability=0.0, positiveProbability=0.0;
 		
 		for(String word : queryWords)
 		{
@@ -48,16 +50,14 @@ public class ProcessData
 						
 			if(negCount!=0 || posCount!=0)
 			{
-				negativeProbability = ((negCount+1)/(numberOfNegativeWords + V))*negativeProbability;
-				positiveProbability = ((posCount+1)/(numberOfPositiveWords + V))*positiveProbability;
+				negativeProbability = negativeProbability + Math.log(((negCount+1)/(numberOfNegativeWords + V)));
+				positiveProbability = positiveProbability + Math.log(((posCount+1)/(numberOfPositiveWords + V)));
 			}
+	
 		}
 
-		negativeProbability = negativeProbability*(numOfNegativeExamples/(double)(numOfNegativeExamples+numofPositiveExamples));
-		positiveProbability = positiveProbability*(numofPositiveExamples/(double)(numofPositiveExamples + numOfNegativeExamples));
-		
-		System.out.println("Negative Sentiment Confidence : " + negativeProbability);
-		System.out.println("Positive Sentiment Confidence : " + positiveProbability);
+		negativeProbability = negativeProbability + Math.log((numOfNegativeExamples/(double)(numOfNegativeExamples+numofPositiveExamples)));
+		positiveProbability = positiveProbability + Math.log((numofPositiveExamples/(double)(numofPositiveExamples + numOfNegativeExamples)));
 		
 		if(negativeProbability>positiveProbability) return false;
 		else return true;
@@ -65,17 +65,28 @@ public class ProcessData
 		
 	}
 	
-	private int calculateVocabularyHashMaps_Wrapper() throws IOException
+	private void createStopwordsHashMap() throws IOException
 	{
-		V = calculateVocabularyHashMaps(0,dataFolder + "/neg") + calculateVocabularyHashMaps(1,dataFolder + "/pos");
+		File stopWordsFile = new File("/home/subhadip/Downloads/aclImdb/stopwords");
+		FileReader fileReader = new FileReader(stopWordsFile);
+		BufferedReader bufferedReader = new BufferedReader(fileReader);
+		String line;
+		while((line = bufferedReader.readLine()) != null)
+		{
+			stopWords.put(line, 1);
+		}
+	}
+	
+	private int calculateVocabularyHashMaps_Wrapper(Boolean removeStopWords) throws IOException
+	{
+		V = calculateVocabularyHashMaps(0,dataFolder + "/neg",removeStopWords) + calculateVocabularyHashMaps(1,dataFolder + "/pos",removeStopWords);
 		return V;
 	}
 	
-	private int calculateVocabularyHashMaps(int mode,String path) throws IOException
+	private int calculateVocabularyHashMaps(int mode,String path, Boolean removeStopWords) throws IOException
 	{
 		int count = 0;
 		File dataFile = new File(path);
-		System.out.println(path);
 		for(String fileName : dataFile.list())
 		{
 			if(mode==0) numOfNegativeExamples++;
@@ -85,12 +96,21 @@ public class ProcessData
 			for(String line : lines)
 			{
 				line = line.replaceAll("[!?,]", "");
-				String[] tokenisedString = line.split(" ");
+				String[] tokenisedString = line.split("<br /><br />|\\s");
 				
-				for (int i = 0; i < tokenisedString.length; i++) tokenisedString[i] = tokenisedString[i].replaceAll("[^\\w]", "");
+				for (int i = 0; i < tokenisedString.length; i++)
+				{
+					tokenisedString[i] = tokenisedString[i].replaceAll("[^\\w]", "");
+					tokenisedString[i] = tokenisedString[i].toLowerCase();
+				}
 				
 				for(String word : tokenisedString)
 				{
+					if(removeStopWords)
+					{
+						if(stopWords.get(word)!=null) continue;
+					}
+					
 					if(mode==0)
 					{
 						numberOfNegativeWords++;
@@ -125,6 +145,12 @@ public class ProcessData
 		return count;
 	}
 	
+	public void checkStopWord(String word)
+	{
+		System.out.println(word);
+		
+	}
+	
 	public void test(String path) throws IOException
 	{
 		int numOfPosExamples = 0;
@@ -144,9 +170,7 @@ public class ProcessData
 			{
 				query = query + " " + line;
 			}
-			System.out.println(query);
 			
-			System.out.println("****\n");
 			if(findSentiment(query)) correctlyClassifiedPositiveExamples++;
 			
 		}
@@ -162,13 +186,22 @@ public class ProcessData
 			{
 				query = query + " " + line;
 			}
-			//if(!findSentiment(query)) correctlyClassifiedNegativeExamples++;
+			if(!findSentiment(query)) correctlyClassifiedNegativeExamples++;
 		}
 		
-		double x = 100*((correctlyClassifiedPositiveExamples+correctlyClassifiedNegativeExamples)/(double)(numOfPosExamples+numOfNegExamples));
-		System.out.println(x);
+		double accuracy = 100*((correctlyClassifiedPositiveExamples+correctlyClassifiedNegativeExamples)/(double)(numOfPosExamples+numOfNegExamples));
+		System.out.println("Accuracy " + accuracy);
+		
+		double precision = 100*(correctlyClassifiedPositiveExamples/(double)(correctlyClassifiedPositiveExamples + (numOfNegExamples - correctlyClassifiedNegativeExamples)));
+		System.out.println("Precision " + precision);
+		
+		double recall = 100*(correctlyClassifiedPositiveExamples/(double)(numOfPosExamples));
+		System.out.println("Recall " + recall);
+		
+		double fMeasure = 2*(precision*recall)/(precision + recall);
+		System.out.println("fMeasure " + fMeasure);
 	}
 	
 	
-	
 }
+

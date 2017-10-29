@@ -1,0 +1,13 @@
+Part 1 Naive bayes classifier:
+Accuracy 81.444
+Precision 86.11596067260867
+Recall 74.976
+fMeasure 80.16080058161913
+
+Part 2 stop words removal:
+Accuracy 82.25200000000001
+Precision 86.67333757845903
+Recall 76.224
+fMeasure 81.11352317711659
+
+Part 3:
