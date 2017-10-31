@@ -16,11 +16,11 @@ public class ProcessData
 	HashMap<String, Integer> stopWords = new HashMap<String, Integer>();
 	String dataFolder; 
 	
-	public ProcessData(String dataFolder, Boolean removeStopWords) throws IOException
-	{
+	public ProcessData(String dataFolder, Boolean removeStopWords, Boolean applyBinaryNB) throws IOException
+	{		
 		this.dataFolder = dataFolder;		
 		createStopwordsHashMap();		
-		calculateVocabularyHashMaps_Wrapper(removeStopWords);
+		calculateVocabularyHashMaps_Wrapper(removeStopWords,applyBinaryNB);
 	}
 	
 	public Boolean findSentiment(String query)
@@ -77,9 +77,10 @@ public class ProcessData
 		}
 	}
 	
-	private int calculateVocabularyHashMaps_Wrapper(Boolean removeStopWords) throws IOException
+	private int calculateVocabularyHashMaps_Wrapper(Boolean removeStopWords, Boolean applyBinaryNB) throws IOException
 	{
-		V = calculateVocabularyHashMaps(0,dataFolder + "/neg",removeStopWords) + calculateVocabularyHashMaps(1,dataFolder + "/pos",removeStopWords);
+		if(applyBinaryNB) V = calculateVocabularyHashMaps_BinaryNaiveBayes(0,dataFolder + "/neg",removeStopWords) + calculateVocabularyHashMaps_BinaryNaiveBayes(1,dataFolder + "/pos",removeStopWords);
+		else V = calculateVocabularyHashMaps(0,dataFolder + "/neg",removeStopWords) + calculateVocabularyHashMaps(1,dataFolder + "/pos",removeStopWords);
 		return V;
 	}
 	
@@ -145,12 +146,6 @@ public class ProcessData
 		return count;
 	}
 	
-	public void checkStopWord(String word)
-	{
-		System.out.println(word);
-		
-	}
-	
 	public void test(String path) throws IOException
 	{
 		int numOfPosExamples = 0;
@@ -202,6 +197,73 @@ public class ProcessData
 		System.out.println("fMeasure " + fMeasure);
 	}
 	
+	
+	private int calculateVocabularyHashMaps_BinaryNaiveBayes(int mode,String path, Boolean removeStopWords) throws IOException
+	{
+		int count = 0;
+		File dataFile = new File(path);
+		HashSet<String> uniqueWordList;
+		for(String fileName : dataFile.list())
+		{
+			uniqueWordList = new HashSet<String>();
+			if(mode==0) numOfNegativeExamples++;
+			if(mode==1) numofPositiveExamples++;
+				
+			List<String> lines = Files.readAllLines(Paths.get(path + "/" + fileName));
+			for(String line : lines)
+			{
+				line = line.replaceAll("[!?,]", "");
+				String[] tokenisedString = line.split("<br /><br />|\\s");
+				
+				for (int i = 0; i < tokenisedString.length; i++)
+				{
+					tokenisedString[i] = tokenisedString[i].replaceAll("[^\\w]", "");
+					tokenisedString[i] = tokenisedString[i].toLowerCase();
+				}
+				
+				for(String word : tokenisedString)
+				{
+					if(uniqueWordList.contains(word)) continue;
+					else uniqueWordList.add(word);
+					
+					if(removeStopWords)
+					{
+						if(stopWords.get(word)!=null) continue;
+					}
+					
+					if(mode==0)
+					{
+						numberOfNegativeWords++;
+						if(negativeVocabulary.get(word)==null)
+						{
+							negativeVocabulary.put(word, 1);
+							count++;
+						}
+						else
+						{
+							int x = negativeVocabulary.get(word);
+							negativeVocabulary.put(word,x+1);
+						}						
+					}
+					else
+					{
+						numberOfPositiveWords++;
+						if(positiveVocabulary.get(word)==null)
+						{
+							positiveVocabulary.put(word, 1);
+							if(negativeVocabulary.get(word)==null) count++;
+						}
+						else
+						{
+							int x = positiveVocabulary.get(word);
+							positiveVocabulary.put(word,x+1);
+						}
+					}
+				}
+			}
+		}
+		return count;
+	}
 	
 }
 
