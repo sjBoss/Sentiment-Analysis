@@ -4,19 +4,19 @@ Precision 86.11596067260867
 Recall 74.976
 fMeasure 80.16080058161913
 
-Part 2 stop words removal:
+Part 2 Naive Bayes classifier + stop words removal:
 Accuracy 82.25200000000001
 Precision 86.67333757845903
 Recall 76.224
 fMeasure 81.11352317711659
 
-Part 3 binary NB:
+Part 3 Binary Naive bayes classifier:
 Accuracy 81.644
 Precision 87.73251931698941
 Recall 73.576
 fMeasure 80.03306791976678
 
-Part 4 binary NB + stopwords removal:
+Part 4 Binary NB + stopwords removal:
 Accuracy 82.164
 Precision 87.57125502289506
 Recall 74.968
